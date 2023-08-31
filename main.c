@@ -114,8 +114,9 @@ void instr_SE(struct emu_state *emulator_state) {
       emulator_state->registers[reg];
   uint8_t byte_val = emulator_state->opcode & 0x00FFU;
 
+#ifndef NDEBUG
   printf("SE R[%#x] %d (reg_val: %d, skip?: %d)\n", reg, byte_val, register_val, register_val == byte_val);
-
+#endif
 
   if (byte_val == register_val) {
     emulator_state->program_counter += 2;
@@ -175,7 +176,9 @@ void instr_ADD(struct emu_state *emulator_state) {
   uint8_t reg = (emulator_state->opcode & 0x0F00U) >> 8;
   uint8_t num = emulator_state->opcode & 0x00FFU;
 
+#ifndef NDEBUG
   printf("ADD R[%#x] %d (was: %d, now: %d)\n", reg, num, emulator_state->registers[reg], emulator_state->registers[reg] + num);
+#endif
 
   emulator_state->registers[reg] += num;
   emulator_state->program_counter += 2;
@@ -328,6 +331,7 @@ void instr_DRW(struct emu_state *emulator_state) {
 }
 
 void *get_op_func(uint16_t opcode) {
+  // TODO: Move to lookup table
   if (opcode == 0x00E0U) {
     return &instr_CLS;
   } else if (opcode == 0x00EEU) {
@@ -387,33 +391,6 @@ void *get_op_func(uint16_t opcode) {
   return NULL;
 }
 
-char* get_instr_name(void* function) {
-    if (function == &instr_CLS) {
-        return "CLS";
-    } else if (function == &instr_RET) {
-        return "RET";
-    } else if (function == &instr_JP) {
-        return "JP";
-    } else if (function == &instr_CALL) {
-        return "CALL";
-    } else if (function == &instr_SE) {
-        return "SE";
-    } else if (function == &instr_LD_I) {
-        return "LD_I";
-    } else if (function == &instr_LD) {
-        return "LD";
-    } else if (function == &instr_ADD) {
-        return "ADD";
-    } else if (function == &instr_DRW) {
-        return "DRW";
-    } else if (function == &instr_AND_reg) {
-        return "AND_reg";
-    } else {
-        return "UNKNOWN"; // Handle unknown instructions
-    }
-}
-
-
 int main(int argc, char *argv[]) {
   struct emu_state state;
   load_rom(argv[1], &state);
@@ -435,14 +412,14 @@ int main(int argc, char *argv[]) {
                    (uint16_t)state.memory[state.program_counter + 1];
     void (*op_func)(struct emu_state *) = get_op_func(state.opcode);
 
-    printf("\n[%d] | PC: %#x / OPCODE: %#x (%s) - ", i, state.program_counter, state.opcode, get_instr_name(op_func));
+    printf("\n[%d] | PC: %#x / OPCODE: %#x (%s) \n", i, state.program_counter, state.opcode, get_instr_name(op_func));
 
     if (op_func == NULL) {
       printf("Illegal Instruction.\n");
       return 1;
     }
-    op_func(&state);
 
+    op_func(&state);
 
     SDL_UpdateTexture(texture, NULL, state.screen, sizeof(state.screen[0]) * SCREEN_WIDTH);
 		SDL_RenderClear(renderer);
