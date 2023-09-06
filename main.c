@@ -1,14 +1,15 @@
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_quit.h>
+#include <SDL2/SDL_timer.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_timer.h>
 
 #define BASE_ADDR 0x200
 #define FONTSET_SIZE 80
-#define SCREEN_WIDTH 64 
-#define SCREEN_HEIGHT 32 
+#define SCREEN_WIDTH 64
+#define SCREEN_HEIGHT 32
 
 struct emu_state {
   uint8_t registers[16];
@@ -42,7 +43,6 @@ uint8_t fontset[FONTSET_SIZE] = {
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
-
 
 void load_rom(char *file_name, struct emu_state *emulator_state) {
   printf("Loading ROM %s\n", file_name);
@@ -110,12 +110,12 @@ void instr_CALL(struct emu_state *emulator_state) {
 // the value in register X is equal to byte KK
 void instr_SE(struct emu_state *emulator_state) {
   uint8_t reg = (emulator_state->opcode & 0x0F00U) >> 8;
-  uint8_t register_val =
-      emulator_state->registers[reg];
+  uint8_t register_val = emulator_state->registers[reg];
   uint8_t byte_val = emulator_state->opcode & 0x00FFU;
 
 #ifndef NDEBUG
-  printf("SE R[%#x] %d (reg_val: %d, skip?: %d)\n", reg, byte_val, register_val, register_val == byte_val);
+  printf("SE R[%#x] %d (reg_val: %d, skip?: %d)\n", reg, byte_val, register_val,
+         register_val == byte_val);
 #endif
 
   if (byte_val == register_val) {
@@ -177,7 +177,8 @@ void instr_ADD(struct emu_state *emulator_state) {
   uint8_t num = emulator_state->opcode & 0x00FFU;
 
 #ifndef NDEBUG
-  printf("ADD R[%#x] %d (was: %d, now: %d)\n", reg, num, emulator_state->registers[reg], emulator_state->registers[reg] + num);
+  printf("ADD R[%#x] %d (was: %d, now: %d)\n", reg, num,
+         emulator_state->registers[reg], emulator_state->registers[reg] + num);
 #endif
 
   emulator_state->registers[reg] += num;
@@ -207,58 +208,85 @@ void instr_XOR_reg(struct emu_state *emulator_state) {
 
 // ADD instruction adds the value of register X with register Y
 void instr_ADD_reg(struct emu_state *emulator_state) {
+  uint8_t prev_value =
+      emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+
   emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] +=
       emulator_state->registers[(emulator_state->opcode & 0x00F0U) >> 4];
+
+  emulator_state->registers[0xF] =
+      (prev_value >
+       emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8])
+          ? 1
+          : 0;
+
   emulator_state->program_counter += 2;
 }
 
 // SUB instruction subtracts the value of register X with register Y
 void instr_SUB_reg(struct emu_state *emulator_state) {
+  uint8_t prev_value =
+      emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+
   emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] -=
       emulator_state->registers[(emulator_state->opcode & 0x00F0U) >> 4];
+
+  // This doesn't exactly make sense, yet the tests pass....
+  emulator_state->registers[0xF] =
+      (prev_value <
+       emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8])
+          ? 0
+          : 1;
   emulator_state->program_counter += 2;
 }
 
-// SHR instruction bit shifts Vx one to the right 
+// SHR instruction bit shifts Vx one to the right
 void instr_SHR_reg(struct emu_state *emulator_state) {
-  uint8_t reg_x_val = emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+  uint8_t reg_x_val =
+      emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+
+  emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] >>= 1;
+
   if ((reg_x_val & 0x01) == 1) {
     emulator_state->registers[0xF] = 1;
   } else {
     emulator_state->registers[0xF] = 0;
   }
 
-  emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] >>= 1;
-
   emulator_state->program_counter += 2;
 }
 
-// SHL instruction bit shifts Vx one to the left 
+// SHL instruction bit shifts Vx one to the left
 void instr_SHL_reg(struct emu_state *emulator_state) {
-  uint8_t reg_x_val = emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
-  if (((reg_x_val & 0xA0) >> 4) == 1) {
+  uint8_t reg_x_val =
+      emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+
+  emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] <<= 1;
+
+  if (((reg_x_val & 0xA0) >> 7) == 1) {
     emulator_state->registers[0xF] = 1;
   } else {
     emulator_state->registers[0xF] = 0;
   }
 
-  emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] <<= 1;
-
   emulator_state->program_counter += 2;
 }
 
-// SUBN sets Vx to Vy - Vx 
+// SUBN sets Vx to Vy - Vx
 void instr_SUBN_reg(struct emu_state *emulator_state) {
-  uint8_t reg_x_val = emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
-  uint8_t reg_y_val = emulator_state->registers[(emulator_state->opcode & 0x00F0U) >> 4];
+  uint8_t reg_x_val =
+      emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+  uint8_t reg_y_val =
+      emulator_state->registers[(emulator_state->opcode & 0x00F0U) >> 4];
+
+  emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] =
+      reg_y_val - reg_x_val;
 
   if (reg_y_val > reg_x_val) {
     emulator_state->registers[0xF] = 1;
   } else {
     emulator_state->registers[0xF] = 0;
   }
-
-  emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8] = reg_y_val - reg_x_val;
 
   emulator_state->program_counter += 2;
 }
@@ -271,7 +299,8 @@ void instr_LD_I(struct emu_state *emulator_state) {
 void instr_LD_reg_I(struct emu_state *emulator_state) {
   unsigned int reg = (emulator_state->opcode & 0x0F00U) >> 8;
   for (unsigned int i = 0; i <= reg; i++) {
-    emulator_state->registers[i] = emulator_state->memory[emulator_state->index + i]; 
+    emulator_state->registers[i] =
+        emulator_state->memory[emulator_state->index + i];
   }
   emulator_state->program_counter += 2;
 }
@@ -279,18 +308,20 @@ void instr_LD_reg_I(struct emu_state *emulator_state) {
 void instr_LD_I_reg(struct emu_state *emulator_state) {
   unsigned int reg = (emulator_state->opcode & 0x0F00U) >> 8;
   for (unsigned int i = 0; i <= reg; i++) {
-    emulator_state->memory[emulator_state->index + i] = emulator_state->registers[i]; 
+    emulator_state->memory[emulator_state->index + i] =
+        emulator_state->registers[i];
   }
   emulator_state->program_counter += 2;
 }
 
 void instr_LD_B_reg(struct emu_state *emulator_state) {
-  unsigned int val = emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
-  emulator_state->memory[emulator_state->index + 2] = val % 10; 
+  unsigned int val =
+      emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+  emulator_state->memory[emulator_state->index + 2] = val % 10;
   val /= 10;
   emulator_state->memory[emulator_state->index + 1] = val % 10;
   val /= 10;
-  emulator_state->memory[emulator_state->index + 0] = val % 10; 
+  emulator_state->memory[emulator_state->index + 0] = val % 10;
   emulator_state->program_counter += 2;
 }
 
@@ -307,8 +338,10 @@ void instr_ADD_I_reg(struct emu_state *emulator_state) {
 }
 
 void instr_DRW(struct emu_state *emulator_state) {
-  uint8_t x_cord = emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
-  uint8_t y_cord = emulator_state->registers[(emulator_state->opcode & 0x00F0U) >> 4];
+  uint8_t x_cord =
+      emulator_state->registers[(emulator_state->opcode & 0x0F00U) >> 8];
+  uint8_t y_cord =
+      emulator_state->registers[(emulator_state->opcode & 0x00F0U) >> 4];
   uint8_t size = emulator_state->opcode & 0x000FU;
   y_cord %= SCREEN_HEIGHT;
   x_cord %= SCREEN_WIDTH;
@@ -316,8 +349,10 @@ void instr_DRW(struct emu_state *emulator_state) {
   emulator_state->registers[0xF] = 0;
   for (unsigned int r = 0; r < size; r++) {
     for (unsigned int c = 0; c < 8; c++) {
-      uint32_t* screen_pixel = &emulator_state->screen[(r+y_cord) * SCREEN_WIDTH + (x_cord + c)];
-      uint8_t sprite_pixel = emulator_state->memory[emulator_state->index + r] & (0x80U >> c); 
+      uint32_t *screen_pixel =
+          &emulator_state->screen[(r + y_cord) * SCREEN_WIDTH + (x_cord + c)];
+      uint8_t sprite_pixel =
+          emulator_state->memory[emulator_state->index + r] & (0x80U >> c);
       if (sprite_pixel) {
         if (*screen_pixel == 0xFFFFFFFF) {
           emulator_state->registers[0xF] = 1;
@@ -398,21 +433,31 @@ int main(int argc, char *argv[]) {
   memset(state.screen, 0, sizeof(state.screen));
 
   SDL_Init(SDL_INIT_EVERYTHING);
-  SDL_Window* window = SDL_CreateWindow("Chip-8 Emulator", // creates a window
-                                       SDL_WINDOWPOS_CENTERED,
-                                       SDL_WINDOWPOS_CENTERED,
-                                       SCREEN_WIDTH * 10, SCREEN_HEIGHT * 10, 0);
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  SDL_Window *window =
+      SDL_CreateWindow("Chip-8 Emulator", // creates a window
+                       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                       SCREEN_WIDTH * 10, SCREEN_HEIGHT * 10, 0);
+  SDL_Renderer *renderer =
+      SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-  SDL_Texture* texture = SDL_CreateTexture(
-			renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+  SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                           SDL_TEXTUREACCESS_STREAMING,
+                                           SCREEN_WIDTH, SCREEN_HEIGHT);
 
-  for(int i = 0; i != -1; i++) {
+  int turbo_mode = argc == 3 && strcmp(argv[2], "turbo") == 0;
+
+  if (turbo_mode) {
+    printf("WARNING: Turbo mode has been enabled. Interpereter will run "
+           "extremely fast!\n");
+  }
+
+  for (long i = 0; i != -1; i++) {
     state.opcode = (((uint16_t)state.memory[state.program_counter]) << 8) |
                    (uint16_t)state.memory[state.program_counter + 1];
     void (*op_func)(struct emu_state *) = get_op_func(state.opcode);
 
-    printf("\n[%d] | PC: %#x / OPCODE: %#x (%s) \n", i, state.program_counter, state.opcode, get_instr_name(op_func));
+    printf("\n[%d] | PC: %#x / OPCODE: %#x \n", i, state.program_counter,
+           state.opcode);
 
     if (op_func == NULL) {
       printf("Illegal Instruction.\n");
@@ -421,14 +466,19 @@ int main(int argc, char *argv[]) {
 
     op_func(&state);
 
-    SDL_UpdateTexture(texture, NULL, state.screen, sizeof(state.screen[0]) * SCREEN_WIDTH);
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, texture, NULL, NULL);
-		SDL_RenderPresent(renderer);
+    SDL_UpdateTexture(texture, NULL, state.screen,
+                      sizeof(state.screen[0]) * SCREEN_WIDTH);
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
 
-    usleep(16000);
+    usleep(turbo_mode ? 100 : 16000);
+
+    if (SDL_QuitRequested()) {
+      printf("Received Quit from SDL. Goodbye!");
+      break;
+    }
   }
-  while (1 == 1) {}
 
   return 0;
 }
