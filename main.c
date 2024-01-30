@@ -641,10 +641,16 @@ int main(int argc, char *argv[]) {
         long msec = (cur.tv_sec - last.tv_sec) * 1000000 + cur.tv_usec - last.tv_usec; 
         if (msec > 16666) {
             last = cur;
-            if (state.sound_timer > 0)
+            if (state.sound_timer > 0) {
+                uint8_t old = state.sound_timer;
                 state.sound_timer -= 1 * (msec/16666);
-            if (state.delay_timer > 0)
-                state.delay_timer -= 1 * (msec/16666);
+                state.sound_timer = state.sound_timer > old ? 0 : state.sound_timer;
+            }
+            if (state.delay_timer > 0){
+                uint8_t old = state.delay_timer;
+                state.delay_timer -= 1 * (msec/16666); 
+                state.delay_timer = state.delay_timer > old ? 0 : state.delay_timer;
+            }
         }
     }
 
@@ -674,8 +680,8 @@ int main(int argc, char *argv[]) {
                    (uint16_t)state.memory[state.program_counter + 1];
     void (*op_func)(struct emu_state *) = get_op_func(state.opcode);
 
-    printf("\n[%d] | PC: %#x / OPCODE: %#x \n", i, state.program_counter,
-           state.opcode);
+    printf("\n[%d] | PC: %#x / OPCODE: %#x / SOUND TIMER: %d/ DELAY TIMER: %d\n", i, state.program_counter,
+           state.opcode, state.sound_timer, state.delay_timer);
 
     if (op_func == NULL) {
       printf("Illegal Instruction.\n");
