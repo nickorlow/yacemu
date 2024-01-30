@@ -53,6 +53,7 @@ yacemu [PATH_TO_YOUR_ROM] turbo
 - [x] Tetris Working Running
 - 1/2 Pass Quirks Test (DispQuirk is a bit touchy) 
 - [x] Add beeper (instead of sound, screen becomes red)
+- [ ] Code cleanup
 - [ ] Rest of Instructions (I believe a few are missing)
 
 ### Screenshots
