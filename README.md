@@ -62,3 +62,4 @@ yacemu [PATH_TO_YOUR_ROM] turbo
 ![IBM Logo Demo](https://github.com/nickorlow/yacemu/blob/main/screenshots/ibm-logo.png?raw=true)
 ![Corax Plus Test Demo](https://github.com/nickorlow/yacemu/blob/main/screenshots/corax+-test.png?raw=true)
 ![Flag Test Demo](https://github.com/nickorlow/yacemu/blob/main/screenshots/flag-test.png?raw=true)
+![Quirks Test](https://github.com/nickorlow/yacemu/blob/main/screenshots/quirks-test.png?raw=true)
