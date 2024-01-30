@@ -48,12 +48,12 @@ yacemu [PATH_TO_YOUR_ROM] turbo
 - [x] Graphics
 - [x] Corax+ Required Instructions
 - [x] Proper Flag Handling 
-- [ ] Working Input
-- [ ] Rest of Instructions
-- [ ] Tetris Working Running
-- [ ] Extended instruction set (MEGACHIP, SUPER CHIP-48)
-- [ ] Add my own custom instructions
-- [ ] Write a ROM that uses the above instructions
+- [x] Working Input
+- [x] More Instructions
+- [x] Tetris Working Running
+- 1/2 Pass Quirks Test (DispQuirk is a bit touchy) 
+- [x] Add beeper (instead of sound, screen becomes red)
+- [ ] Rest of Instructions (I believe a few are missing)
 
 ### Screenshots
 
