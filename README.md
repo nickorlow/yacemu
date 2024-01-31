@@ -1,4 +1,4 @@
-# Yet another Chip-8 Emulator (yacemu)
+# Yet another Chip-8 emulator (yacemu)
 A Chip-8 emulator (interpereter) written in C. Depends on SDL2.
 
 [Want to see Yet another yet another Chip-8 emulator? (in Verilog)](https://github.com/nickorlow/yayacemu)
